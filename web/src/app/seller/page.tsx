@@ -11,6 +11,7 @@ import {
 import { getSellerGate } from "./_lib";
 import NotSeller from "./_not-seller";
 import AutoRefresh from "./_refresh";
+import RoundLink from "./_round-link";
 import { DEMO_ORDERS, DEMO_ROUNDS, groupbuyDemoMode } from "@/lib/groupbuy-demo";
 
 export const dynamic = "force-dynamic";
@@ -207,16 +208,13 @@ export default async function SellerDashboard() {
                     <span className="ml-1 text-xs text-ink-mute">시작 전</span>
                   )}
                 </p>
-                {ctx.handle && (
-                  <p className="mt-1 font-mono text-xs text-accent">
-                    glo-us.com/product/@{ctx.handle}
-                  </p>
-                )}
               </div>
               <p className="text-xs text-ink-mute">
                 정산 기준일 {fmtDate(r.settle_due_at)} · 수수료율 {rate}%
               </p>
             </div>
+
+            {ctx.handle && <RoundLink handle={ctx.handle} live={isLive} />}
 
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Stat label="오늘 매출" value={formatKRW(todaySum)} />
