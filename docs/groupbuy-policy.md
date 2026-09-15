@@ -1,6 +1,6 @@
-# glo 공동구매·협찬 운영 정책
+﻿# glo 공동구매·협찬 운영 정책
 
-> 최종 수정: 2026-08-10 (v2) · 도입 [#243](https://github.com/weglow-glo/glo-us/pull/243) → 개선 [#245](https://github.com/weglow-glo/glo-us/pull/245)·[#246](https://github.com/weglow-glo/glo-us/pull/246)·[#247](https://github.com/weglow-glo/glo-us/pull/247)·[#248](https://github.com/weglow-glo/glo-us/pull/248) · 포인트 규칙은 [points-policy.md](points-policy.md) 참조
+> 최종 수정: 2026-08-10 (v2) · 도입 [#243](https://github.com/weglow-dev/glo-us/pull/243) → 개선 [#245](https://github.com/weglow-dev/glo-us/pull/245)·[#246](https://github.com/weglow-dev/glo-us/pull/246)·[#247](https://github.com/weglow-dev/glo-us/pull/247)·[#248](https://github.com/weglow-dev/glo-us/pull/248) · 포인트 규칙은 [points-policy.md](points-policy.md) 참조
 
 ## 1. 개요
 
