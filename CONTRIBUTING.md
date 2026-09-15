@@ -1,4 +1,4 @@
-# glo 기여 가이드
+﻿# glo 기여 가이드
 
 이 문서는 **개발자가 아닌 팀원**(마케팅 · 디자인)도 사이트에 기여할 수 있도록 만든 가이드입니다.
 
@@ -58,7 +58,7 @@ glo/
 
 **예시:** `ko/index.html`의 hero 문구를 바꾸고 싶음.
 
-1. https://github.com/weglow-glo/glo-us 접속 → `ko/` → `index.html`
+1. https://github.com/weglow-dev/glo-us 접속 → `ko/` → `index.html`
 2. 우상단 **연필(✏️)** 클릭 → `Ctrl+F`로 문구 검색 → 수정
 3. 맨 아래 **Commit message**(`mkt: hero 문구 수정`) → **"Create a new branch and start a pull request"** → 브랜치명 `mkt/hero-copy-fix`
 4. **"Propose changes"** → PR 생성
