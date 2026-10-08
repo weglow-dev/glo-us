@@ -44,10 +44,18 @@ export async function fetchTracking(
   const n = invoice.replace(/\D/g, "");
   if (!n) return { found: false, delivered: false, error: "송장번호 형식 오류" };
 
-  const url = `${API}?t_key=${encodeURIComponent(key)}&t_code=${carrier.smartCode}&t_invoice=${n}`;
-
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    // 2026-10-30부터 GET 지원 종료 — POST(form-encoded)로만 호출한다.
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        t_key: key,
+        t_code: carrier.smartCode,
+        t_invoice: n,
+      }).toString(),
+      cache: "no-store",
+    });
     if (!res.ok) return { found: false, delivered: false, error: `HTTP ${res.status}` };
     const j = (await res.json()) as ApiResponse;
 
