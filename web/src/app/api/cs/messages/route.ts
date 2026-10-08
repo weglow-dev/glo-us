@@ -51,12 +51,13 @@ type ConvRow = {
   category: CsCategory | null;
   mode: "bot" | "human";
   order_id: string | null;
+  last_preview: string | null;
   admin_unread: number;
   customer_unread: number;
 };
 
 const CONV_SELECT =
-  "id, client_token, user_id, display_name, status, category, mode, order_id, admin_unread, customer_unread";
+  "id, client_token, user_id, display_name, status, category, mode, order_id, last_preview, admin_unread, customer_unread";
 
 /** 토큰 우선, 없으면 로그인 세션으로 대화를 찾는다. */
 async function resolveConversation(
@@ -98,34 +99,84 @@ export async function GET(request: Request) {
   const conv = await resolveConversation(admin, token, user?.id ?? null);
   if (!conv) return NextResponse.json({ conversation: null, messages: [], loggedIn: !!user });
 
-  // 비회원으로 시작한 대화 — 로그인 후 돌아오면 여기서 계정에 연결한다.
+  // 비회원으로 시작한 대화 — 로그인 후 돌아오면 계정에 연결 (기존 대화 있으면 병합)
+  let resolved = conv;
   if (user && !conv.user_id) {
-    const displayName =
-      String(user.user_metadata?.name ?? user.user_metadata?.nickname ?? "").trim() || null;
-    await admin
-      .from("cs_conversations")
-      .update({ user_id: user.id, display_name: displayName })
-      .eq("id", conv.id);
-    conv.user_id = user.id;
+    resolved = await bindOrMerge(admin, conv, user);
   }
 
   const { data: messages } = await admin
     .from("cs_messages")
     .select("id, conversation_id, sender, body, meta, created_at")
-    .eq("conversation_id", conv.id)
+    .eq("conversation_id", resolved.id)
     .order("created_at", { ascending: true })
     .limit(100)
     .returns<CsMessage[]>();
 
-  if (conv.customer_unread > 0) {
-    await admin.from("cs_conversations").update({ customer_unread: 0 }).eq("id", conv.id);
+  if (resolved.customer_unread > 0) {
+    await admin.from("cs_conversations").update({ customer_unread: 0 }).eq("id", resolved.id);
   }
 
   return NextResponse.json({
-    conversation: { id: conv.id, token: conv.client_token, status: conv.status },
+    conversation: { id: resolved.id, token: resolved.client_token, status: resolved.status },
     messages: messages ?? [],
     loggedIn: !!user,
   });
+}
+
+/**
+ * 비회원으로 시작한 대화를 로그인 계정에 연결한다. 이 회원의 기존 대화가 있으면
+ * 게스트 대화의 메시지를 기존 대화로 **병합**하고 기존 대화를 돌려준다 — 같은
+ * 사람의 대화방이 인박스에 여러 개 쌓이지 않게 하는 장치. 위젯이 들고 있던
+ * 게스트 토큰은 이 응답의 새 토큰(기존 대화 것)으로 자연스럽게 교체된다.
+ */
+async function bindOrMerge(
+  admin: ReturnType<typeof createAdminClient>,
+  conv: ConvRow,
+  user: { id: string; user_metadata?: Record<string, unknown> },
+): Promise<ConvRow> {
+  const displayName =
+    String(user.user_metadata?.name ?? user.user_metadata?.nickname ?? "").trim() || null;
+
+  const { data: existing } = await admin
+    .from("cs_conversations")
+    .select(CONV_SELECT)
+    .eq("user_id", user.id)
+    .neq("id", conv.id)
+    .order("last_message_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<ConvRow>();
+
+  if (!existing) {
+    await admin
+      .from("cs_conversations")
+      .update({ user_id: user.id, display_name: displayName })
+      .eq("id", conv.id);
+    return { ...conv, user_id: user.id, display_name: displayName };
+  }
+
+  // 게스트 대화의 메시지를 기존 대화로 옮기고 게스트 대화는 삭제.
+  // 퍼널 진행 상태(mode/category/order)는 지금 진행 중인 게스트 쪽이 최신이다.
+  await admin
+    .from("cs_messages")
+    .update({ conversation_id: existing.id })
+    .eq("conversation_id", conv.id);
+  const merged = {
+    user_id: user.id,
+    display_name: displayName ?? existing.display_name,
+    status: "open" as const,
+    mode: conv.mode,
+    category: conv.category ?? existing.category,
+    order_id: conv.order_id ?? existing.order_id,
+    last_preview: conv.last_preview ?? existing.last_preview,
+    last_message_at: new Date().toISOString(),
+    admin_unread: existing.admin_unread + conv.admin_unread,
+  };
+  await admin.from("cs_conversations").update(merged).eq("id", existing.id);
+  await admin.from("cs_conversations").delete().eq("id", conv.id);
+  await broadcastCs(CS_INBOX_TOPIC, "update", { conversationId: existing.id });
+
+  return { ...existing, ...merged };
 }
 
 /** meta 파싱 — 알 수 없는 형태는 무시하고 일반 텍스트로 취급 */
@@ -266,12 +317,8 @@ export async function POST(request: Request) {
     }
     conv = created;
   } else if (user && !conv.user_id) {
-    // 비회원으로 시작한 대화 — 로그인 후 첫 메시지에서 계정에 연결한다.
-    await admin
-      .from("cs_conversations")
-      .update({ user_id: user.id, display_name: displayName })
-      .eq("id", conv.id);
-    conv = { ...conv, user_id: user.id, display_name: displayName };
+    // 비회원으로 시작한 대화 — 로그인 후 첫 메시지에서 계정에 연결 (기존 대화 있으면 병합)
+    conv = await bindOrMerge(admin, conv, user);
   }
 
   const { count } = await admin
