@@ -511,7 +511,9 @@ footer{background:var(--burg-800);padding:64px 0 32px;color:rgba(244,235,235,.6)
   background-size:1.1em .16em,100% 200%;
   background-position-x:0,0;
   background-position-y:100%,0%;
-  animation:po-rise 5.5s cubic-bezier(.3,.6,.25,1) .2s forwards paused,po-wave 2.4s linear infinite paused;
+  /* alternate 무한 반복 — 차올랐다가 천천히 내려가며 호흡하듯 순환.
+     (reduced-motion 은 1회·즉시 종료 + forwards 로 가득 찬 상태 고정) */
+  animation:po-rise 5.5s cubic-bezier(.45,.05,.55,.95) .2s infinite alternate forwards paused,po-wave 2.4s linear infinite paused;
 }
 .po-banner-fill.is-filling{animation-play-state:running,running;}
 @keyframes po-rise{to{background-position-y:0%,100%;}}
