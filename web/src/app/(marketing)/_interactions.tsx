@@ -202,6 +202,21 @@ export function ProductInteractions() {
         }
       };
 
+      // 리뷰 총개수 동기화 — ko/product.html의 하드코딩 폴백(탭·인트로 숫자)을
+      // 실제 DB 카운트로 교체해, 리뷰가 쌓일 때마다 사이트 숫자가 따라가게 한다.
+      void fetch("/api/reviews?limit=1", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { total?: number } | null) => {
+          const total = d?.total;
+          if (typeof total !== "number" || total <= 0) return;
+          document
+            .querySelectorAll(".ptab-n, .rvh-n")
+            .forEach((el) => (el.textContent = total.toLocaleString("ko-KR")));
+          const introN = document.querySelector(".rev-intro b");
+          if (introN) introN.textContent = `${total.toLocaleString("ko-KR")}개`;
+        })
+        .catch(() => {});
+
       // Static fallback: reveal collapsed cards in batches.
       const revealStatic = () => {
         const hidden = document.querySelectorAll<HTMLElement>(".rev-item.is-collapsed");

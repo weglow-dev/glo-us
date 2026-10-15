@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { normalizePhone, sendPlainNotice } from "@/lib/notify";
+import { normalizePhone, sendPlainNotice, UNSUB_080 } from "@/lib/notify";
 import { pointBalance } from "@/lib/points";
 
 export const dynamic = "force-dynamic";
@@ -89,9 +89,7 @@ export async function GET(request: Request) {
     return days >= total - LEAD_DAYS && days <= total + CATCHUP_DAYS && days <= MAX_DAYS_SINCE_DELIVERED;
   });
 
-  // 솔라피 공용 무료수신거부 번호 — 별도 신청 불필요, 거부 시 솔라피가 자동 차단.
-  // 전용 080 번호를 받으면 SOLAPI_080_NUMBER 로 교체한다.
-  const unsub = process.env.SOLAPI_080_NUMBER || "080-500-4233";
+  const unsub = UNSUB_080;
   let sent = 0;
   let skipped = 0;
   const failures: Array<{ order_id: string; error: string }> = [];
