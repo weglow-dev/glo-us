@@ -498,12 +498,24 @@ footer{background:var(--burg-800);padding:64px 0 32px;color:rgba(244,235,235,.6)
 .po-banner-img{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%);height:clamp(150px,32vw,260px);width:auto;z-index:2;filter:drop-shadow(0 22px 44px rgba(58,26,34,.3));pointer-events:none;user-select:none;}
 .po-banner-off{position:absolute;right:3%;bottom:7%;z-index:3;font-family:'Wanted Sans Variable','Wanted Sans','Pretendard',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-style:italic;font-size:clamp(26px,5.5vw,52px);color:var(--burg-200);}
 .po-banner-unit{font-size:.3em;font-style:italic;color:var(--burg-200);letter-spacing:0;margin-left:10px;vertical-align:baseline;}
-/* 수분이 글자 안에서 차오르는 연출 — 아래(딥 로즈)가 위(옅은 로즈)를 밀어올린다.
-   reduced-motion 전역 오버라이드(.01ms)에서는 즉시 가득 찬 상태로 끝난다. */
-.po-banner-fill{background:linear-gradient(to top,var(--burg-300) 0%,var(--burg-300) 50%,var(--burg-50) 50%,var(--burg-50) 100%);background-size:100% 200%;background-position:0 0;-webkit-background-clip:text;background-clip:text;color:transparent;animation:po-fill 2.8s cubic-bezier(.25,.8,.3,1) .2s forwards paused;}
-/* 배너가 뷰포트에 들어오면 JS(_interactions)가 is-filling을 붙여 차오름 시작 */
-.po-banner-fill.is-filling{animation-play-state:running;}
-@keyframes po-fill{to{background-position:0 100%;}}
+/* 수분이 글자 안에서 차오르는 연출 — 두 레이어:
+   1) 물결 스트립(SVG, repeat-x) = 찰랑이는 수면, 2) 그라데이션 = 차오르는 물.
+   po-rise 는 Y(수위), po-wave 는 X(출렁임)만 움직여 서로 충돌하지 않는다.
+   배너가 뷰포트에 들어오면 JS(_interactions)가 is-filling 을 붙여 시작하고,
+   다 차오른 뒤에도 수면은 계속 찰랑인다. reduced-motion 에선 가득 찬 정지 상태. */
+.po-banner-fill{
+  display:inline-block;letter-spacing:0;padding:0 .06em;
+  color:transparent;-webkit-background-clip:text;background-clip:text;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 28' preserveAspectRatio='none'%3E%3Cpath d='M0 14 Q15 5 30 14 T60 14 T90 14 T120 14 V28 H0 Z' fill='%236e3038'/%3E%3C/svg%3E"),linear-gradient(to top,var(--burg-300) 50%,var(--burg-50) 50%);
+  background-repeat:repeat-x,no-repeat;
+  background-size:1.1em .16em,100% 200%;
+  background-position-x:0,0;
+  background-position-y:100%,0%;
+  animation:po-rise 5.5s cubic-bezier(.3,.6,.25,1) .2s forwards paused,po-wave 2.4s linear infinite paused;
+}
+.po-banner-fill.is-filling{animation-play-state:running,running;}
+@keyframes po-rise{to{background-position-y:0%,100%;}}
+@keyframes po-wave{to{background-position-x:1.1em,0;}}
 .po-banner-sub{margin-top:20px;font-size:13px;color:var(--ink-mute);line-height:1.7;}
 .po-banner-dl{margin-top:14px;font-size:clamp(12.5px,1.6vw,14px);font-weight:600;color:var(--accent);}
 .po-banner-dl b{font-weight:800;}
