@@ -498,6 +498,10 @@ footer{background:var(--burg-800);padding:64px 0 32px;color:rgba(244,235,235,.6)
 .po-banner-img{position:absolute;left:50%;top:50%;transform:translate(-50%,-46%);height:clamp(150px,32vw,260px);width:auto;z-index:2;filter:drop-shadow(0 22px 44px rgba(58,26,34,.3));pointer-events:none;user-select:none;}
 .po-banner-off{position:absolute;right:3%;bottom:7%;z-index:3;font-family:'Wanted Sans Variable','Wanted Sans','Pretendard',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-style:italic;font-size:clamp(26px,5.5vw,52px);color:var(--burg-200);}
 .po-banner-unit{font-size:.3em;font-style:italic;color:var(--burg-200);letter-spacing:0;margin-left:10px;vertical-align:baseline;}
+/* 수분이 글자 안에서 차오르는 연출 — 아래(딥 로즈)가 위(옅은 로즈)를 밀어올린다.
+   reduced-motion 전역 오버라이드(.01ms)에서는 즉시 가득 찬 상태로 끝난다. */
+.po-banner-fill{background:linear-gradient(to top,var(--burg-300) 0%,var(--burg-300) 50%,var(--burg-50) 50%,var(--burg-50) 100%);background-size:100% 200%;background-position:0 0;-webkit-background-clip:text;background-clip:text;color:transparent;animation:po-fill 2.8s cubic-bezier(.25,.8,.3,1) .4s forwards;}
+@keyframes po-fill{to{background-position:0 100%;}}
 .po-banner-sub{margin-top:20px;font-size:13px;color:var(--ink-mute);line-height:1.7;}
 .po-banner-dl{margin-top:14px;font-size:clamp(12.5px,1.6vw,14px);font-weight:600;color:var(--accent);}
 .po-banner-dl b{font-weight:800;}
@@ -1451,11 +1455,11 @@ body.po-stuck nav:not(.ptabs){opacity:0;visibility:hidden;transition:opacity .2s
 <section class="po-banner" id="detail">
   <div class="ctr po-banner-in">
     <div class="ey clay"><span class="dash"></span>환절기, 피부가 먼저 압니다</div>
-    <h2 class="po-banner-h">건조가 시작되는 계절,<br><em>수분은 안에서</em> 채웁니다.</h2>
+    <h2 class="po-banner-h">건조가 시작되는 계절,<br>수분을 <em>안에서부터</em> 가득 채웁니다.</h2>
     <div class="po-banner-fig">
-      <span class="po-banner-num">121.5<span class="po-banner-unit">mg</span></span>
+      <span class="po-banner-num"><span class="po-banner-fill">6</span><span class="po-banner-unit">L</span></span>
     </div>
-    <p class="po-banner-sub">히알루론산 복합 120mg과 밀크 세라마이드 — 당기는 계절의 장벽과 수분을 안쪽에서 돌봅니다. 수량별 할인 혜택은 계속됩니다.</p>
+    <p class="po-banner-sub">히알루론산 1g은 최대 6L의 물을 붙잡는 것으로 알려져 있습니다.<br>GL-01은 히알루론산 복합 120mg과 밀크 세라마이드로, 당기는 계절의 수분과 장벽을 안쪽에서 돌봅니다. 수량별 할인 혜택은 계속됩니다.</p>
     <p class="po-banner-dl">1박스 구매자 평균 재구매율 <b>78%</b></p>
   </div>
 </section>
