@@ -164,7 +164,7 @@ function buildPage({ src, route, css, interactions }) {
   if (ldBlocks.length) body += "\n" + ldBlocks.join("\n");
 
   const urlPath = route ? `/${route}` : "/";
-  const OG_IMG = "https://www.glo-us.com/assets/og/og-cover.jpg";
+  const OG_IMG = "https://www.glo-us.com/assets/og/og-cover.png";
   const isLegal = route === "privacy" || route === "terms";
   const metaObj = {
     title,

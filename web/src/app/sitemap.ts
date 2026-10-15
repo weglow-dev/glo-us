@@ -1,17 +1,16 @@
 import type { MetadataRoute } from "next";
 
-const BASE = "https://www.glo-us.com";
-
 /**
- * /sitemap.xml — 공개 마케팅 페이지만 싣는다.
- * /refund 는 임시 비공개(404), privacy/terms 는 noindex(원설계)라 제외.
+ * 색인 대상 = 마케팅 페이지 4개. 리걸 페이지(privacy/terms/refund)는 noindex,
+ * 커머스 경로는 robots 에서 차단되므로 싣지 않는다.
+ * "지엘공일" 브랜드 검색 전략의 기초 — 이 파일이 있어야 서치콘솔 등록이 쉽다.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
+  const base = "https://www.glo-us.com";
   return [
-    { url: `${BASE}/`, lastModified, changeFrequency: "weekly", priority: 1 },
-    { url: `${BASE}/product`, lastModified, changeFrequency: "weekly", priority: 0.9 },
-    { url: `${BASE}/science`, lastModified, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${BASE}/about`, lastModified, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/`, changeFrequency: "weekly", priority: 1 },
+    { url: `${base}/product`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${base}/science`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/about`, changeFrequency: "monthly", priority: 0.6 },
   ];
 }
