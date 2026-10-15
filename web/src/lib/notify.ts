@@ -232,18 +232,30 @@ export async function sendPlainNotice(opts: {
   }
 }
 
-/** 배송완료 7일 후 리뷰 요청 문자 본문. 금액은 지급 정책(app_settings)에서 받는다. */
+/**
+ * 광고성 문자 공통 — 무료수신거부 번호. 솔라피 공용 번호가 기본값이며
+ * (별도 신청 불필요, 거부 시 솔라피가 자동 차단), 전용 080을 받으면
+ * SOLAPI_080_NUMBER 로 교체한다. 포인트 혜택을 안내하는 리뷰 요청도
+ * 광고성 정보라 (광고) 표기 + 이 번호가 의무다.
+ */
+export const UNSUB_080 = process.env.SOLAPI_080_NUMBER || "080-500-4233";
+
+/** 리뷰 요청 문자 본문 — 1차(배송완료 7일) / 2차 리마인드(remind). 금액은 지급 정책에서. */
 export function reviewRequestMessage(opts: {
   name: string | null;
   textPoint?: number;
   totalPoint?: number;
+  remind?: boolean;
 }): string {
   const t = (opts.textPoint ?? 3000).toLocaleString("ko-KR");
   const total = (opts.totalPoint ?? 5000).toLocaleString("ko-KR");
+  const who = opts.name ? opts.name + " 고객님, " : "";
   return [
-    `[glo] 일주일 드셔보셨나요?`,
+    opts.remind ? `(광고) [glo] 후기 작성, 잊지 않으셨나요?` : `(광고) [glo] 일주일 드셔보셨나요?`,
     ``,
-    `${opts.name ? opts.name + " 고객님, " : ""}glo GL-01과 함께한 첫 일주일은 어떠셨나요?`,
+    opts.remind
+      ? `${who}지난번 안내드린 후기 이벤트가 아직 열려 있습니다. 드셔보신 솔직한 경험을 들려주세요.`
+      : `${who}glo GL-01과 함께한 첫 일주일은 어떠셨나요?`,
     ``,
     `후기를 남겨주시면 다음 구매에 쓸 수 있는 포인트를 드립니다.`,
     `· 텍스트 후기 ${t}P`,
@@ -251,6 +263,8 @@ export function reviewRequestMessage(opts: {
     ``,
     `리뷰 작성`,
     `${SITE}/account`,
+    ``,
+    `무료수신거부 ${UNSUB_080}`,
   ].join("\n");
 }
 
@@ -261,6 +275,7 @@ export async function sendReviewRequest(opts: {
   name: string | null;
   textPoint?: number;
   totalPoint?: number;
+  remind?: boolean;
 }): Promise<NotifyResult> {
   const key = process.env.SOLAPI_API_KEY;
   const secret = process.env.SOLAPI_API_SECRET;
@@ -275,7 +290,7 @@ export async function sendReviewRequest(opts: {
     to: opts.to,
     from: from.replace(/\D/g, ""),
     text: reviewRequestMessage(opts),
-    subject: "[glo] 후기 이벤트 안내",
+    subject: "(광고) glo 후기 이벤트 안내",
   };
   if (useAlimtalk) {
     message.kakaoOptions = {
