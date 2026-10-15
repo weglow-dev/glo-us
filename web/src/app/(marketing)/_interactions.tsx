@@ -202,6 +202,23 @@ export function ProductInteractions() {
         }
       };
 
+      // 시즌 배너 6L 차오름 — 로드 시점이 아니라 배너가 보이는 순간 시작해야
+      // 스크롤로 도착한 사용자가 애니메이션을 실제로 본다.
+      const fillEl = document.querySelector<HTMLElement>(".po-banner-fill");
+      if (fillEl) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            if (entries.some((e) => e.isIntersecting)) {
+              fillEl.classList.add("is-filling");
+              io.disconnect();
+            }
+          },
+          { threshold: 0.5 },
+        );
+        io.observe(fillEl);
+        cleanups.push(() => io.disconnect());
+      }
+
       // 리뷰 총개수 동기화 — ko/product.html의 하드코딩 폴백(탭·인트로 숫자)을
       // 실제 DB 카운트로 교체해, 리뷰가 쌓일 때마다 사이트 숫자가 따라가게 한다.
       void fetch("/api/reviews?limit=1", { cache: "no-store" })

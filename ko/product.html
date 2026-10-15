@@ -500,7 +500,9 @@ footer{background:var(--burg-800);padding:64px 0 32px;color:rgba(244,235,235,.6)
 .po-banner-unit{font-size:.3em;font-style:italic;color:var(--burg-200);letter-spacing:0;margin-left:10px;vertical-align:baseline;}
 /* 수분이 글자 안에서 차오르는 연출 — 아래(딥 로즈)가 위(옅은 로즈)를 밀어올린다.
    reduced-motion 전역 오버라이드(.01ms)에서는 즉시 가득 찬 상태로 끝난다. */
-.po-banner-fill{background:linear-gradient(to top,var(--burg-300) 0%,var(--burg-300) 50%,var(--burg-50) 50%,var(--burg-50) 100%);background-size:100% 200%;background-position:0 0;-webkit-background-clip:text;background-clip:text;color:transparent;animation:po-fill 2.8s cubic-bezier(.25,.8,.3,1) .4s forwards;}
+.po-banner-fill{background:linear-gradient(to top,var(--burg-300) 0%,var(--burg-300) 50%,var(--burg-50) 50%,var(--burg-50) 100%);background-size:100% 200%;background-position:0 0;-webkit-background-clip:text;background-clip:text;color:transparent;animation:po-fill 2.8s cubic-bezier(.25,.8,.3,1) .2s forwards paused;}
+/* 배너가 뷰포트에 들어오면 JS(_interactions)가 is-filling을 붙여 차오름 시작 */
+.po-banner-fill.is-filling{animation-play-state:running;}
 @keyframes po-fill{to{background-position:0 100%;}}
 .po-banner-sub{margin-top:20px;font-size:13px;color:var(--ink-mute);line-height:1.7;}
 .po-banner-dl{margin-top:14px;font-size:clamp(12.5px,1.6vw,14px);font-weight:600;color:var(--accent);}
