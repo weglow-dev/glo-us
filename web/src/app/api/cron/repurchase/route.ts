@@ -37,10 +37,11 @@ type OrderRow = {
   shipping_address: { recipient?: string; phone?: string } | null;
 };
 
-/** "glo GL-01 2개월 분" × quantity → 총 개월수 (파싱 실패 시 1개월) */
+/** "glo GL-01 2개월 분" → 총 개월수. quantity에는 개월수가 중복 저장되므로
+ *  (orders/route.ts `quantity: opt.months`) 곱하면 제곱이 된다 — order_name만 파싱. */
 function monthsOf(o: OrderRow): number {
   const m = /(\d+)\s*개월/.exec(o.order_name ?? "");
-  return (m ? parseInt(m[1], 10) : 1) * Math.max(1, o.quantity ?? 1);
+  return m ? parseInt(m[1], 10) : Math.max(1, o.quantity ?? 1);
 }
 
 function repurchaseText(opts: { name: string | null; orderName: string; points: number; unsub: string }): string {
