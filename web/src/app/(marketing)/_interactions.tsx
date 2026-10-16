@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import { OPTIONS, PROMO, promoActive, promoStockLeft, regularOf } from "@/lib/product";
+import { mountPromoUi } from "./_promo";
+
+const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;
 
 /**
  * Client-side interactions for the lift-and-shifted marketing pages.
@@ -12,6 +16,9 @@ import { useEffect } from "react";
  */
 
 export function ProductInteractions() {
+  // 기간 프로모션 안내 — 상단 띠 + 히어로 배지 + 모바일 하단 바 + 가격 비교 머리 (기간 밖이면 no-op)
+  useEffect(() => mountPromoUi({ heroPill: true, floatNote: true, costNote: true }), []);
+
   useEffect(() => {
     const cleanups: Array<() => void> = [];
 
@@ -85,6 +92,90 @@ export function ProductInteractions() {
     cleanups.push(() =>
       faqHandlers.forEach(([el, h]) => el.removeEventListener("click", h)),
     );
+
+    // 4.5) 기간 프로모션 — HTML 은 일반가 그대로 두고, 기간 안에서만 프로모션가로
+    //      올린다. 반대로(HTML 에 할인가, 종료 후 JS 로 복구) 두면 종료 뒤에도
+    //      첫 페인트·미리보기·크롤러에 할인가가 남는다 (런칭 이벤트 때 겪은 문제).
+    //      공구 회차 페이지(/product/@…)는 회차 가격표가 따로 있어 건드리지 않는다.
+    if (promoActive() && !location.pathname.startsWith("/product/@")) {
+      const offOf = (o: (typeof OPTIONS)[number], p: number) =>
+        Math.round((1 - p / regularOf(o)) * 100);
+      document.querySelectorAll<HTMLElement>(".opt[data-key]").forEach((card) => {
+        const o = OPTIONS.find((x) => x.key === card.dataset.key);
+        if (!o?.promoPrice) return;
+        const priceEl = card.querySelector<HTMLElement>(".opt-price");
+        const discEl = card.querySelector<HTMLElement>(".opt-disc");
+        if (priceEl) priceEl.textContent = won(o.promoPrice);
+        if (discEl) discEl.textContent = `-${offOf(o, o.promoPrice)}%`;
+      });
+      const activePrice = document.querySelector<HTMLElement>(".opt.active .opt-price")?.textContent;
+      const floatPrice = document.getElementById("buy-float-price");
+      if (floatPrice && activePrice) floatPrice.textContent = activePrice;
+
+      // 단가표 위 기간 바 — 남아 있는 .buy-scar / .po-scar-* 스타일 재사용
+      const maxOff = Math.max(
+        ...OPTIONS.map((o) => (o.promoPrice ? offOf(o, o.promoPrice) : 0)),
+      );
+      const list = document.querySelector<HTMLElement>("#buy .opt-list");
+      if (list && !document.getElementById("promo-scar")) {
+        list.insertAdjacentHTML(
+          "beforebegin",
+          `<div class="promo-band" id="promo-scar">
+            <div class="promo-band-top">
+              <span class="promo-band-badge"><span class="promo-pill-dot"></span>${PROMO.label} 진행 중</span>
+              <span class="promo-band-off">최대 <b>${maxOff}%</b> 할인</span>
+            </div>
+            <div class="promo-stock">
+              <div class="promo-stock-top">
+                <span>이벤트 수량 <b>${PROMO.stockTotal.toLocaleString("ko-KR")}박스</b></span>
+                <span class="promo-stock-left">남은 수량 <b id="promo-left">–</b>박스</span>
+              </div>
+              <div class="promo-band-bar"><div id="promo-fill" style="width:0%"></div></div>
+            </div>
+            <div class="promo-band-msg"><b>한정 수량</b>이벤트 수량 소진 시 종료</div>
+            <div class="promo-band-foot">소진 즉시 일반 판매가로 전환됩니다</div>
+          </div>`,
+        );
+        // 남은 수량 막대 (PROMO.stockAtStart → 종료 시각 0, 선형). 열어둔 채
+        // 내부 종료 시각이 지나면 새로고침해 일반가로 돌린다
+        const leftEl = document.getElementById("promo-left");
+        const fill = document.getElementById("promo-fill");
+        let timer = 0;
+        const tick = () => {
+          const left = PROMO.endsAt - Date.now();
+          if (left <= 0) {
+            // 페이지를 열어둔 채 마감 — 새로고침하면 일반가로 보인다
+            window.clearInterval(timer);
+            window.location.reload();
+            return;
+          }
+          const stock = promoStockLeft();
+          if (leftEl) leftEl.textContent = stock.toLocaleString("ko-KR");
+          if (fill) fill.style.width = `${((stock / PROMO.stockTotal) * 100).toFixed(1)}%`;
+        };
+        timer = window.setInterval(tick, 30000);
+        tick();
+        cleanups.push(() => window.clearInterval(timer));
+      }
+
+      // 가격 비교 섹션의 glo 열·결론도 같은 가격으로 (합계는 화면 값에서 읽음)
+      const one = OPTIONS.find((o) => o.key === "1m");
+      const sepTotal = document.querySelector<HTMLElement>("#cost tfoot .sep .cost-price")?.textContent;
+      if (one?.promoPrice && sepTotal) {
+        const total = Number(sepTotal.replace(/[^0-9]/g, ""));
+        const gloPrice = document.querySelector<HTMLElement>("#cost tfoot .glo-col .cost-price");
+        const gloDay = document.querySelector<HTMLElement>("#cost tfoot .glo-col .po-cmp-sm");
+        const vNum = document.querySelector<HTMLElement>("#cost .cost-v-num");
+        const vEm = document.querySelector<HTMLElement>("#cost .cost-v-h em");
+        if (gloPrice) gloPrice.textContent = won(one.promoPrice);
+        if (gloDay) gloDay.textContent = `하루 ${won(Math.round(one.promoPrice / 30))}`;
+        if (total > one.promoPrice) {
+          const diff = total - one.promoPrice;
+          if (vNum) vNum.innerHTML = `-${Math.round((diff / total) * 100)}<span>%</span>`;
+          if (vEm) vEm.textContent = won(diff);
+        }
+      }
+    }
 
     // 5) Duration option cards → update selection + buy button targets
     //    (in-box button and the mobile floating bar).
@@ -738,6 +829,8 @@ export function ProductInteractions() {
 }
 
 export function ScienceInteractions() {
+  useEffect(() => mountPromoUi(), []);
+
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
@@ -867,6 +960,8 @@ export function ScienceInteractions() {
  * additive — with JS off (or reduced motion) the page renders untouched.
  */
 export function LandingInteractions() {
+  useEffect(() => mountPromoUi(), []);
+
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let disposed = false;
@@ -890,8 +985,17 @@ export function LandingInteractions() {
       cleanups.push(() => window.removeEventListener("scroll", onFloatScroll));
     }
 
-    // 홈 가격 카운터 목표값 — 1개월 일반 판매가 (lib/product.ts OPTIONS 와 동일)
-    const homePrice = 99960;
+    // 홈 가격 카운터 목표값 — 1개월 실판매가 (기간 프로모션이면 프로모션가)
+    const oneMonth = OPTIONS.find((o) => o.key === "1m");
+    const promoOn = promoActive() && !!oneMonth?.promoPrice;
+    const homePrice = promoOn && oneMonth?.promoPrice ? oneMonth.promoPrice : 99960;
+    if (promoOn && oneMonth?.promoPrice) {
+      const rsEm = $(".rs-price em");
+      if (rsEm) {
+        const off = Math.round((1 - oneMonth.promoPrice / regularOf(oneMonth)) * 100);
+        rsEm.textContent = `${off}% 할인 · ${PROMO.label} 한정 수량`;
+      }
+    }
 
     // ── reduced-motion: 정적 상태 세팅 (CSS 폴백 + 값 채움) ─────────
     if (reduce) {
