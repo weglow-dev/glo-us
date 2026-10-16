@@ -66,6 +66,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:var(--bg-1);color:var(--ink);}
+html{scroll-behavior:smooth;}
 body{font-family:'Wanted Sans Variable','Wanted Sans','Pretendard',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;}
 a{color:inherit;text-decoration:none;}
 sup.c{font-size:.63em;font-weight:600;color:var(--accent);vertical-align:super;line-height:0;margin-left:1px;}
@@ -126,6 +127,13 @@ nav{position:fixed;top:18px;left:0;right:0;z-index:50;pointer-events:none;}
 @keyframes featShimmer{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
 @media (prefers-reduced-motion:reduce){.atom.featured{animation:atomFade .8s ease forwards;background:rgba(255,250,250,.78);}}
 @keyframes atomFade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+a.atom{color:var(--ink-mute);text-decoration:none;cursor:pointer;transition:border-color .25s ease,box-shadow .25s ease;}
+a.atom:hover{border-color:rgba(138,74,82,.55);box-shadow:0 10px 26px rgba(58,26,34,.18);}
+.atom-badge{position:absolute;top:-16px;right:12px;display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.3px;color:var(--cream);background:var(--accent);border-radius:100px;padding:3.5px 9px;box-shadow:0 3px 10px rgba(58,26,34,.28);animation:badgeBob 2.4s ease-in-out 1.4s infinite;}
+.atom-badge svg{width:10px;height:10px;flex-shrink:0;}
+.atom-badge .atom-badge-ar{width:8px;height:8px;}
+@keyframes badgeBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
+@media (prefers-reduced-motion:reduce){.atom-badge{animation:none;}}
 .bottle{width:108px;height:560px;transform:rotateY(-5deg) rotateX(2deg);transform-style:preserve-3d;background:linear-gradient(155deg,rgba(255,255,255,.07) 0%,transparent 18%,transparent 82%,rgba(0,0,0,.2) 100%),linear-gradient(160deg,#5a2229 0%,#3a1a22 50%,#2a1218 100%);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;box-shadow:0 4px 8px rgba(58,26,34,.18),0 14px 28px rgba(58,26,34,.22),0 36px 70px rgba(58,26,34,.32),0 70px 140px rgba(58,26,34,.42),inset 0 1px 2px rgba(212,181,181,.22),inset -1px 0 3px rgba(0,0,0,.28);padding:60px 8px 38px;position:relative;}
 .bottle::before{content:'';position:absolute;top:0;left:0;right:0;height:16px;background:repeating-linear-gradient(90deg,transparent 0 5px,rgba(20,15,20,.34) 5px 6px),linear-gradient(180deg,rgba(244,235,235,.12),transparent);border-radius:8px 8px 0 0;}
 .bottle::after{content:'TEAR';position:absolute;top:20px;left:50%;transform:translateX(-50%);font-size:7px;font-weight:700;letter-spacing:1.5px;color:rgba(244,235,235,.42);z-index:3;}
@@ -822,7 +830,7 @@ html[lang="ko"] p,html[lang="ko"] .ph-desc,html[lang="ko"] .t-sub,html[lang="ko"
 .ptab.is-active{color:var(--ink);}
 .ptab.is-active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink);}
 .ptab-n{color:var(--accent);font-weight:700;margin-left:1px;}
-#detail,#reviews{scroll-margin-top:60px;}
+#detail,#reviews,#tightening-pb{scroll-margin-top:60px;}
 /* hide ONLY the floating nav pills (logo/login) while the section tabs are pinned — not the tab bar itself */
 body.po-stuck nav:not(.ptabs){opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease;}
 
@@ -993,7 +1001,7 @@ body.po-stuck nav:not(.ptabs){opacity:0;visibility:hidden;transition:opacity .2s
   <div class="ctr phero-g">
     <div class="phero-l">
       <div class="atom a1"><span class="atom-dot"></span>글루타치온</div>
-      <div class="atom a2 featured"><span class="atom-dot"></span>Tightening-PB Complex®</div>
+      <a class="atom a2 featured" href="#tightening-pb" aria-label="모공 특허 성분 Tightening-PB Complex® 상세 설명 보기"><span class="atom-badge"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7" r="4.5"/><path d="M8 7.2l1.5 1.5L12 5.7"/><path d="M7 11l-1.6 6 4.6-1.8 4.6 1.8L13 11"/></svg>모공 특허<svg class="atom-badge-ar" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3"/></svg></span><span class="atom-dot"></span>Tightening-PB Complex®</a>
       <div class="atom a3"><span class="atom-dot"></span>L-시스틴</div>
       <div class="atom a4"><span class="atom-dot"></span>나이아신아마이드</div>
       <div class="atom a5"><span class="atom-dot"></span>화이트 토마토</div>
