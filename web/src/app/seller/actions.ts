@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/notify";
+import { parseSellerTaxType } from "@/lib/groupbuy";
 
 /**
  * 셀러 지원 — 로그인한 회원이 심사 신청서를 낸다.
@@ -79,6 +80,12 @@ export async function updateMyProfile(formData: FormData) {
   const bank = String(formData.get("bank") ?? "").trim().slice(0, 30);
   const account = String(formData.get("account") ?? "").trim().slice(0, 40);
   const holder = String(formData.get("holder") ?? "").trim().slice(0, 30);
+  // 정산 구분 — 프리랜서는 원천징수 3.3% 차감, 사업자는 세금계산서(사업자등록번호 필요)
+  const taxType = parseSellerTaxType(formData.get("tax_type")) ?? "freelancer";
+  const businessNo =
+    taxType === "business"
+      ? String(formData.get("business_no") ?? "").trim().slice(0, 20) || null
+      : null;
 
   await admin
     .from("sellers")
@@ -86,6 +93,8 @@ export async function updateMyProfile(formData: FormData) {
       phone: phone ?? null,
       email,
       bank_info: bank || account || holder ? { bank, account, holder } : null,
+      tax_type: taxType,
+      business_no: businessNo,
     })
     .eq("id", seller.id);
 

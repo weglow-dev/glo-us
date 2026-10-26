@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import {
   normalizeSellerHandle,
   parseRoundOptions,
+  parseSellerTaxType,
   ROUND_REVENUE_STATUSES,
   SETTLE_HOLD_DAYS,
+  settlementOf,
 } from "@/lib/groupbuy";
 import {
   dispatchSellerNotice,
@@ -51,6 +53,24 @@ export async function updateSellerHandle(formData: FormData) {
   if (error) redirect("/admin/sellers?err=handle_taken");
   revalidatePath("/admin/sellers");
   redirect("/admin/sellers?ok=handle");
+}
+
+/** 정산 구분 수정 — 프리랜서(원천징수 3.3%) / 사업자(세금계산서, 사업자등록번호).
+ *  이미 확정된 회차의 스냅샷은 바꾸지 않는다. */
+export async function updateSellerTax(formData: FormData) {
+  const sellerId = str(formData.get("seller_id"));
+  const taxType = parseSellerTaxType(str(formData.get("tax_type")));
+  if (!sellerId || !taxType) return;
+  const businessNo = taxType === "business" ? str(formData.get("business_no"))?.slice(0, 20) ?? null : null;
+
+  const admin = createAdminClient();
+  await admin
+    .from("sellers")
+    .update({ tax_type: taxType, business_no: businessNo })
+    .eq("id", sellerId);
+  revalidatePath("/admin/sellers");
+  revalidatePath("/seller");
+  redirect("/admin/sellers?ok=tax");
 }
 
 export async function toggleSellerActive(formData: FormData) {
@@ -254,7 +274,8 @@ export async function rejectRound(formData: FormData) {
   revalidatePath("/admin/sellers");
 }
 
-/** 정산 확정 — 확정 시점의 paid 스냅샷 × 수수료율.
+/** 정산 확정 — 확정 시점의 paid 스냅샷 × 수수료율 = 수수료(settled_amount).
+ *  셀러 구분에 따라 원천징수·실지급액을 함께 스냅샷으로 남긴다.
  *  (settle_due_at 이전에도 버튼은 누를 수 있게 두되, 화면에 기준일을 표시한다) */
 export async function settleRound(formData: FormData) {
   const roundId = str(formData.get("round_id"));
@@ -264,29 +285,36 @@ export async function settleRound(formData: FormData) {
 
   const { data: round } = await admin
     .from("groupbuy_rounds")
-    .select("id, status, commission_rate, settled_at, ends_at")
+    .select("id, seller_id, status, commission_rate, settled_at, ends_at")
     .eq("id", roundId)
     .maybeSingle();
   if (!round || round.settled_at || round.status !== "approved") return;
   // 진행 중 회차는 확정 불가 — 종료 후에만 (UI 도 기준일부터만 노출)
   if (!round.ends_at || Date.now() < Date.parse(round.ends_at)) return;
 
-  const { data: orders } = await admin
-    .from("orders")
-    .select("amount, status")
-    .eq("round_id", roundId)
-    .in("status", ROUND_REVENUE_STATUSES)
-    .limit(100000);
+  const [{ data: orders }, { data: seller }] = await Promise.all([
+    admin
+      .from("orders")
+      .select("amount, status")
+      .eq("round_id", roundId)
+      .in("status", ROUND_REVENUE_STATUSES)
+      .limit(100000),
+    admin.from("sellers").select("tax_type").eq("id", round.seller_id).maybeSingle(),
+  ]);
   const sales = (orders ?? []).reduce((s, o) => s + (o.amount ?? 0), 0);
   const rate = Number(round.commission_rate ?? 0);
-  const settledAmount = Math.round((sales * rate) / 100);
+  const taxType = parseSellerTaxType(seller?.tax_type) ?? "freelancer";
+  const settlement = settlementOf(Math.round((sales * rate) / 100), taxType);
 
   await admin
     .from("groupbuy_rounds")
     .update({
       status: "ended",
       settled_at: new Date().toISOString(),
-      settled_amount: settledAmount,
+      settled_amount: settlement.gross,
+      settled_tax_type: taxType,
+      settled_withholding: settlement.withheld,
+      settled_net: settlement.net,
     })
     .eq("id", roundId);
   revalidatePath("/admin/sellers");

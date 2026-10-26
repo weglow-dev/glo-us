@@ -3,9 +3,13 @@ import { formatKRW } from "@/lib/product";
 import {
   GROUPBUY_STANDARD_OPTIONS,
   ROUND_TYPE_LABEL,
+  SELLER_TAX_TYPE_LABEL,
   isRoundRevenue,
   parseRoundOptions,
+  parseSellerTaxType,
+  settlementOf,
   type RoundType,
+  type SellerTaxType,
 } from "@/lib/groupbuy";
 
 /** 회차 옵션 입력 기본값 — 표준 공구 단가표 */
@@ -20,6 +24,7 @@ import {
   settleRound,
   toggleSellerActive,
   updateSellerHandle,
+  updateSellerTax,
 } from "./actions";
 import {
   DEMO_APPLICATIONS,
@@ -39,6 +44,8 @@ type SellerRow = {
   phone: string | null;
   email: string | null;
   bank_info: { bank?: string; account?: string; holder?: string } | null;
+  tax_type: SellerTaxType | null;
+  business_no: string | null;
   active: boolean;
   note: string | null;
 };
@@ -58,6 +65,9 @@ type RoundRow = {
   settle_due_at: string | null;
   settled_at: string | null;
   settled_amount: number | null;
+  settled_tax_type: SellerTaxType | null;
+  settled_withholding: number | null;
+  settled_net: number | null;
   request_note: string | null;
   admin_note: string | null;
 };
@@ -121,6 +131,7 @@ const ERR_MSG: Record<string, string> = {
 const OK_MSG: Record<string, string> = {
   approved: "승인 완료 — 전용 링크가 발급되고 셀러에게 안내가 발송되었습니다.",
   handle: "전용 URL 을 저장했습니다.",
+  tax: "정산 구분을 저장했습니다 — 아직 확정 전인 회차부터 반영됩니다.",
 };
 
 export default async function AdminSellersPage({
@@ -148,13 +159,13 @@ export default async function AdminSellersPage({
     const [{ data: sellerRows }, { data: roundRowsData }] = await Promise.all([
       admin
         .from("sellers")
-        .select("id, user_id, handle, name, phone, email, bank_info, active, note")
+        .select("id, user_id, handle, name, phone, email, bank_info, tax_type, business_no, active, note")
         .order("created_at", { ascending: true })
         .returns<SellerRow[]>(),
       admin
         .from("groupbuy_rounds")
         .select(
-          "id, seller_id, round_no, type, status, handle, display_name, starts_at, ends_at, options, commission_rate, settle_due_at, settled_at, settled_amount, request_note, admin_note",
+          "id, seller_id, round_no, type, status, handle, display_name, starts_at, ends_at, options, commission_rate, settle_due_at, settled_at, settled_amount, settled_tax_type, settled_withholding, settled_net, request_note, admin_note",
         )
         .order("created_at", { ascending: false })
         .returns<RoundRow[]>(),
@@ -185,6 +196,9 @@ export default async function AdminSellersPage({
 
   const sellerName = new Map(sellers.map((s) => [s.id, s.name]));
   const sellerHandle = new Map(sellers.map((s) => [s.id, s.handle]));
+  const sellerTax = new Map<string, SellerTaxType>(
+    sellers.map((s) => [s.id, parseSellerTaxType(s.tax_type) ?? "freelancer"]),
+  );
 
   // 회차별 매출 집계 — paid 만 매출, canceled/refunded 는 참고 표기
   const agg = new Map<string, { paid: number; paidCount: number; lost: number; lostCount: number }>();
@@ -210,7 +224,7 @@ export default async function AdminSellersPage({
       <h1 className="font-sans text-2xl font-light text-ink">셀러 · 공동구매 관리</h1>
       <p className="mt-1 text-sm text-ink-mute">
         전용 링크는 <code className="rounded bg-bg-3 px-1.5 py-0.5">glo-us.com/product/@핸들</code> ·
-        정산 기준일은 회차 종료 3주 뒤 금요일 (매출 스냅샷 × 수수료율 · 취소·환불 제외)
+        정산 기준일은 회차 종료 3주 뒤 금요일 (매출 스냅샷 × 수수료율 · 취소·환불 제외 · 프리랜서는 3.3% 원천징수 차감)
       </p>
       {demo && (
         <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-medium text-amber-800">
@@ -352,14 +366,14 @@ export default async function AdminSellersPage({
       {/* ── 진행·예정 회차 ─────────────────────────── */}
       <section className="mt-8">
         <h2 className="font-sans text-lg text-ink">진행 · 예정 회차</h2>
-        <RoundTable rounds={activeRounds} sellerName={sellerName} sellerHandle={sellerHandle} agg={agg} now={now} showSettle />
+        <RoundTable rounds={activeRounds} sellerName={sellerName} sellerHandle={sellerHandle} sellerTax={sellerTax} agg={agg} now={now} showSettle />
       </section>
 
       {/* ── 종료된 회차 ─────────────────────────── */}
       {doneRounds.length > 0 && (
         <section className="mt-8">
           <h2 className="font-sans text-lg text-ink">종료 · 반려</h2>
-          <RoundTable rounds={doneRounds} sellerName={sellerName} sellerHandle={sellerHandle} agg={agg} now={now} />
+          <RoundTable rounds={doneRounds} sellerName={sellerName} sellerHandle={sellerHandle} sellerTax={sellerTax} agg={agg} now={now} />
         </section>
       )}
 
@@ -367,12 +381,13 @@ export default async function AdminSellersPage({
       <section className="mt-10">
         <h2 className="font-sans text-lg text-ink">셀러</h2>
         <div className="mt-3 overflow-x-auto rounded-xl border border-ink-line">
-          <table className="w-full min-w-[760px] table-fixed text-sm">
+          <table className="w-full min-w-[1000px] table-fixed text-sm">
             <thead>
               <tr className="border-b border-ink-line bg-bg-2 text-left text-xs text-ink-mute">
                 {/* 폭 고정(table-fixed) — 아코디언을 펼쳐도 열이 밀리지 않는다 */}
                 <th className="w-28 px-4 py-3">이름</th>
-                <th className="w-64 px-4 py-3">전용 URL</th>
+                <th className="w-56 px-4 py-3">전용 URL</th>
+                <th className="w-64 px-4 py-3">정산 구분</th>
                 <th className="px-4 py-3">셀러 정보</th>
                 <th className="w-28 px-4 py-3">포털 계정</th>
                 <th className="w-28 px-4 py-3">상태</th>
@@ -391,6 +406,29 @@ export default async function AdminSellersPage({
                         defaultValue={s.handle ?? ""}
                         placeholder="첫 승인 때 지정"
                         className="min-w-0 flex-1 rounded-md border border-ink-line bg-bg-1 px-2 py-1 font-mono text-[11px] text-ink"
+                      />
+                      <button className="shrink-0 whitespace-nowrap rounded-full border border-ink-line px-3 py-1 text-[11px] font-medium text-ink-soft hover:border-accent hover:text-accent">
+                        저장
+                      </button>
+                    </form>
+                  </td>
+                  <td className="px-4 py-3">
+                    {/* 프리랜서 = 지급 시 3.3% 원천징수 / 사업자 = 세금계산서 기준 전액 */}
+                    <form action={updateSellerTax} className="flex flex-wrap items-center gap-1.5">
+                      <input type="hidden" name="seller_id" value={s.id} />
+                      <select
+                        name="tax_type"
+                        defaultValue={s.tax_type ?? "freelancer"}
+                        className="rounded-md border border-ink-line bg-bg-1 px-2 py-1 text-[11px] text-ink"
+                      >
+                        <option value="freelancer">프리랜서 · 3.3% 원천징수</option>
+                        <option value="business">사업자 · 세금계산서</option>
+                      </select>
+                      <input
+                        name="business_no"
+                        defaultValue={s.business_no ?? ""}
+                        placeholder="사업자번호"
+                        className="w-24 min-w-0 rounded-md border border-ink-line bg-bg-1 px-2 py-1 font-mono text-[11px] text-ink"
                       />
                       <button className="shrink-0 whitespace-nowrap rounded-full border border-ink-line px-3 py-1 text-[11px] font-medium text-ink-soft hover:border-accent hover:text-accent">
                         저장
@@ -459,7 +497,7 @@ export default async function AdminSellersPage({
               ))}
               {sellers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-ink-mute">
+                  <td colSpan={6} className="px-4 py-8 text-center text-ink-mute">
                     등록된 셀러가 없습니다.
                   </td>
                 </tr>
@@ -477,6 +515,7 @@ function RoundTable({
   rounds,
   sellerName,
   sellerHandle,
+  sellerTax,
   agg,
   now,
   showSettle = false,
@@ -484,6 +523,7 @@ function RoundTable({
   rounds: RoundRow[];
   sellerName: Map<string, string>;
   sellerHandle: Map<string, string | null>;
+  sellerTax: Map<string, SellerTaxType>;
   agg: Map<string, { paid: number; paidCount: number; lost: number; lostCount: number }>;
   now: number;
   showSettle?: boolean;
@@ -500,7 +540,7 @@ function RoundTable({
             <th className="px-4 py-3 text-right">매출</th>
             <th className="px-4 py-3 text-right">취소·환불</th>
             <th className="px-4 py-3 text-right">수수료율</th>
-            <th className="px-4 py-3 text-right">정산</th>
+            <th className="px-4 py-3 text-right">정산 (실지급)</th>
             <th className="w-16 px-4 py-3" />
           </tr>
         </thead>
@@ -509,6 +549,9 @@ function RoundTable({
             const a = agg.get(r.id) ?? { paid: 0, paidCount: 0, lost: 0, lostCount: 0 };
             const rate = Number(r.commission_rate ?? 0);
             const est = Math.round((a.paid * rate) / 100);
+            // 확정된 회차는 확정 당시 구분(스냅샷), 그 전 회차는 셀러의 현재 구분
+            const taxType = r.settled_tax_type ?? sellerTax.get(r.seller_id) ?? "freelancer";
+            const settlement = settlementOf(r.settled_at ? (r.settled_amount ?? 0) : est, taxType);
             const live =
               r.status === "approved" &&
               r.starts_at &&
@@ -579,12 +622,14 @@ function RoundTable({
                 <td className="px-4 py-3 text-right">
                   {r.settled_at ? (
                     <>
-                      <p className="whitespace-nowrap font-medium text-ink">{formatKRW(r.settled_amount ?? 0)}</p>
+                      <p className="whitespace-nowrap font-medium text-ink">{formatKRW(settlement.net)}</p>
+                      <SettlementNote settlement={settlement} taxType={taxType} />
                       <p className="text-[11px] text-ink-mute">확정 {fmtDate(r.settled_at)}</p>
                     </>
                   ) : (
                     <>
-                      <p className="whitespace-nowrap text-ink-soft">예상 {formatKRW(est)}</p>
+                      <p className="whitespace-nowrap text-ink-soft">예상 {formatKRW(settlement.net)}</p>
+                      <SettlementNote settlement={settlement} taxType={taxType} />
                       {/* 정산 확정은 기준일(종료 3주 뒤 금요일)부터만 — 진행 중엔 노출하지 않는다 */}
                       {showSettle &&
                         ended &&
@@ -624,6 +669,24 @@ function RoundTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** 정산 칸 보조 표기 — 프리랜서는 수수료·원천징수 내역, 사업자는 구분만 */
+function SettlementNote({
+  settlement,
+  taxType,
+}: {
+  settlement: ReturnType<typeof settlementOf>;
+  taxType: SellerTaxType;
+}) {
+  return (
+    <p className="whitespace-nowrap text-[11px] text-ink-mute">
+      {SELLER_TAX_TYPE_LABEL[taxType]}
+      {taxType === "freelancer"
+        ? ` · 수수료 ${formatKRW(settlement.gross)} − 원천징수 ${formatKRW(settlement.withheld)}`
+        : " · 세금계산서"}
+    </p>
   );
 }
 
