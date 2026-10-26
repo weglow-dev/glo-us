@@ -6,6 +6,7 @@ import {
   maskName,
   parseRoundOptions,
   ROUND_TYPE_LABEL,
+  settlementOf,
   type RoundType,
 } from "@/lib/groupbuy";
 import { getSellerGate } from "./_lib";
@@ -189,7 +190,7 @@ export default async function SellerDashboard() {
           .filter((o) => isTodayKST(o.approved_at ?? o.created_at))
           .reduce((s, o) => s + o.amount, 0);
         const rate = Number(r.commission_rate ?? 0);
-        const est = Math.round((paidSum * rate) / 100);
+        const est = settlementOf(Math.round((paidSum * rate) / 100), ctx.taxType);
         const isLive = live.includes(r);
         const opts = parseRoundOptions(r.options) ?? [];
         const recent = ro.slice(0, 15);
@@ -224,7 +225,16 @@ export default async function SellerDashboard() {
                 value={lost.length > 0 ? `−${formatKRW(lostSum)}` : "0원"}
                 sub={lost.length > 0 ? `${lost.length}건` : undefined}
               />
-              <Stat label="예상 정산액" value={formatKRW(est)} sub="확정은 정산 기준일에" accent />
+              <Stat
+                label="예상 실지급액"
+                value={formatKRW(est.net)}
+                sub={
+                  ctx.taxType === "freelancer"
+                    ? `수수료 ${formatKRW(est.gross)} − 원천징수 3.3% ${formatKRW(est.withheld)}`
+                    : "수수료 전액 · 세금계산서"
+                }
+                accent
+              />
             </div>
 
             {opts.length > 0 && (

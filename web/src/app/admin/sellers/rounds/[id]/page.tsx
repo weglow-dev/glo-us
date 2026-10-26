@@ -2,7 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatKRW } from "@/lib/product";
-import { isRoundRevenue, ROUND_TYPE_LABEL, type RoundType } from "@/lib/groupbuy";
+import {
+  isRoundRevenue,
+  parseSellerTaxType,
+  ROUND_TYPE_LABEL,
+  SELLER_TAX_TYPE_LABEL,
+  settlementOf,
+  type RoundType,
+  type SellerTaxType,
+} from "@/lib/groupbuy";
 import { statusLabel } from "@/lib/order-status";
 import {
   DEMO_ORDERS,
@@ -26,6 +34,9 @@ type Round = {
   settle_due_at: string | null;
   settled_at: string | null;
   settled_amount: number | null;
+  settled_tax_type: SellerTaxType | null;
+  settled_withholding: number | null;
+  settled_net: number | null;
 };
 
 type OrderRow = {
@@ -57,6 +68,7 @@ export default async function AdminRoundDetailPage({
 
   let round: Round | null = null;
   let sellerName = "";
+  let sellerTaxType: SellerTaxType = "freelancer";
   let orders: OrderRow[] = [];
 
   if (demo) {
@@ -64,7 +76,9 @@ export default async function AdminRoundDetailPage({
     const r = DEMO_ROUNDS.find((d) => d.id === id);
     if (!r) notFound();
     round = r;
-    sellerName = DEMO_SELLERS.find((s) => s.id === r.seller_id)?.name ?? "?";
+    const demoSeller = DEMO_SELLERS.find((s) => s.id === r.seller_id);
+    sellerName = demoSeller?.name ?? "?";
+    sellerTaxType = demoSeller?.tax_type ?? "freelancer";
     orders = DEMO_ORDERS.filter((o) => o.round_id === id)
       .map((o, i) => ({
         id: `demo-${i}`,
@@ -84,7 +98,7 @@ export default async function AdminRoundDetailPage({
     const { data: r } = await admin
       .from("groupbuy_rounds")
       .select(
-        "id, seller_id, round_no, type, status, display_name, starts_at, ends_at, commission_rate, settle_due_at, settled_at, settled_amount",
+        "id, seller_id, round_no, type, status, display_name, starts_at, ends_at, commission_rate, settle_due_at, settled_at, settled_amount, settled_tax_type, settled_withholding, settled_net",
       )
       .eq("id", id)
       .maybeSingle<Round>();
@@ -93,10 +107,11 @@ export default async function AdminRoundDetailPage({
 
     const { data: seller } = await admin
       .from("sellers")
-      .select("name")
+      .select("name, tax_type")
       .eq("id", r.seller_id)
       .maybeSingle();
     sellerName = seller?.name ?? "?";
+    sellerTaxType = parseSellerTaxType(seller?.tax_type) ?? "freelancer";
 
     const { data: orderRows } = await admin
       .from("orders")
@@ -116,6 +131,12 @@ export default async function AdminRoundDetailPage({
   const lostSum = lost.reduce((s, o) => s + o.amount, 0);
   const rate = Number(round.commission_rate ?? 0);
   const buyers = new Set(paid.map((o) => o.customer_phone ?? o.customer_email ?? o.id)).size;
+  // 확정된 회차는 확정 당시 구분(스냅샷), 그 전엔 셀러의 현재 구분
+  const taxType = round.settled_tax_type ?? sellerTaxType;
+  const settlement = settlementOf(
+    round.settled_at ? (round.settled_amount ?? 0) : Math.round((paidSum * rate) / 100),
+    taxType,
+  );
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -150,13 +171,22 @@ export default async function AdminRoundDetailPage({
       )}
 
       {/* 집계 */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+      <div className="mt-5 grid gap-3 sm:grid-cols-5">
         <Stat label="매출" value={formatKRW(paidSum)} sub={`${paid.length}건 · 구매자 ${buyers}명`} />
         <Stat label="취소·환불" value={lost.length > 0 ? `−${formatKRW(lostSum)}` : "—"} sub={lost.length > 0 ? `${lost.length}건` : ""} />
-        <Stat label="수수료율" value={`${rate}%`} sub="" />
+        <Stat label={`수수료 (${rate}%)`} value={formatKRW(settlement.gross)} sub={round.settled_at ? "확정 스냅샷" : "현재 매출 기준"} />
         <Stat
-          label={round.settled_at ? "확정 정산액" : "예상 정산액"}
-          value={formatKRW(round.settled_at ? (round.settled_amount ?? 0) : Math.round((paidSum * rate) / 100))}
+          label="원천징수 3.3%"
+          value={taxType === "freelancer" ? `−${formatKRW(settlement.withheld)}` : "—"}
+          sub={
+            taxType === "freelancer"
+              ? `소득세 ${formatKRW(settlement.incomeTax)} + 지방세 ${formatKRW(settlement.localTax)}`
+              : `${SELLER_TAX_TYPE_LABEL[taxType]} · 세금계산서`
+          }
+        />
+        <Stat
+          label={round.settled_at ? "확정 실지급액" : "예상 실지급액"}
+          value={formatKRW(settlement.net)}
           sub={round.settled_at ? `확정 ${fmtDT(round.settled_at)}` : "확정은 정산 기준일에"}
           highlight
         />

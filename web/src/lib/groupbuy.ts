@@ -126,6 +126,49 @@ export function roundDiscountOf(o: RoundOption): number {
   return Math.round((1 - o.price / roundRegularOf(o)) * 1000) / 10;
 }
 
+/** 셀러 정산 구분 — 프리랜서(개인)는 사업소득 원천징수 3.3% 차감 후 지급,
+ *  사업자는 세금계산서 기준으로 수수료 전액 지급. */
+export type SellerTaxType = "freelancer" | "business";
+
+export const SELLER_TAX_TYPE_LABEL: Record<SellerTaxType, string> = {
+  freelancer: "프리랜서",
+  business: "사업자",
+};
+
+export function parseSellerTaxType(value: unknown): SellerTaxType | null {
+  return value === "freelancer" || value === "business" ? value : null;
+}
+
+export type Settlement = {
+  /** 수수료 (매출 × 수수료율) */
+  gross: number;
+  /** 소득세 3% */
+  incomeTax: number;
+  /** 지방소득세 (소득세의 10%) */
+  localTax: number;
+  /** 원천징수 합계 */
+  withheld: number;
+  /** 실지급액 */
+  net: number;
+};
+
+/** 원천징수 계산 — 소득세 3%(10원 미만 절사) + 지방소득세 = 소득세의 10%(10원 미만 절사).
+ *  구분이 없으면 프리랜서로 본다 (DB 기본값과 동일). */
+export function settlementOf(gross: number, taxType: SellerTaxType | null | undefined): Settlement {
+  if (taxType === "business") {
+    return { gross, incomeTax: 0, localTax: 0, withheld: 0, net: gross };
+  }
+  const incomeTax = Math.floor((gross * 0.03) / 10) * 10;
+  const localTax = Math.floor((incomeTax * 0.1) / 10) * 10;
+  return {
+    gross,
+    incomeTax,
+    localTax,
+    withheld: incomeTax + localTax,
+    net: gross - incomeTax - localTax,
+  };
+}
+
 /** 셀러 화면용 이름 마스킹 — "김준호" → "김*호", "이엘" → "이*" */
 export function maskName(name: string | null | undefined): string {
   const n = (name ?? "").trim();

@@ -6,7 +6,7 @@
  * 샘플 데이터를 공급한다. 프로덕션 빌드(NODE_ENV=production)에서는
  * groupbuyDemoMode() 가 항상 false — 이 데이터가 노출될 경로가 없다.
  */
-import { GROUPBUY_STANDARD_OPTIONS, type RoundOption } from "@/lib/groupbuy";
+import { GROUPBUY_STANDARD_OPTIONS, settlementOf, type RoundOption } from "@/lib/groupbuy";
 
 export function groupbuyDemoMode(): boolean {
   return (
@@ -23,6 +23,8 @@ export type DemoSeller = {
   phone: string | null;
   email: string | null;
   bank_info: { bank?: string; account?: string; holder?: string } | null;
+  tax_type: "freelancer" | "business";
+  business_no: string | null;
   active: boolean;
   note: string | null;
 };
@@ -42,6 +44,9 @@ export type DemoRound = {
   settle_due_at: string | null;
   settled_at: string | null;
   settled_amount: number | null;
+  settled_tax_type: "freelancer" | "business" | null;
+  settled_withholding: number | null;
+  settled_net: number | null;
   request_note: string | null;
   admin_note: string | null;
 };
@@ -111,6 +116,8 @@ export const DEMO_SELLERS: DemoSeller[] = [
     phone: "01012345678",
     email: "ellie@example.com",
     bank_info: { bank: "국민", account: "123456-01-234567", holder: "김엘리" },
+    tax_type: "freelancer",
+    business_no: null,
     active: true,
     note: "인스타 12만 팔로워 · 뷰티",
   },
@@ -122,6 +129,8 @@ export const DEMO_SELLERS: DemoSeller[] = [
     phone: "01098765432",
     email: null,
     bank_info: null,
+    tax_type: "business",
+    business_no: "123-45-67890",
     active: true,
     note: "유튜브 5만 구독 · 협찬 위주",
   },
@@ -148,6 +157,9 @@ export const DEMO_ROUNDS: DemoRound[] = [
     settle_due_at: iso(now() + 28 * DAY),
     settled_at: null,
     settled_amount: null,
+    settled_tax_type: null,
+    settled_withholding: null,
+    settled_net: null,
     request_note: "8월 둘째 주 희망, 3개월 구성 중심으로 홍보 예정",
     admin_note: null,
   },
@@ -167,6 +179,9 @@ export const DEMO_ROUNDS: DemoRound[] = [
     settle_due_at: null,
     settled_at: null,
     settled_amount: null,
+    settled_tax_type: null,
+    settled_withholding: null,
+    settled_net: null,
     request_note: "9월 첫 주 희망합니다. 구독자 대상 라이브 진행 예정.",
     admin_note: null,
   },
@@ -186,6 +201,9 @@ export const DEMO_ROUNDS: DemoRound[] = [
     settle_due_at: iso(now() - 17 * DAY),
     settled_at: iso(now() - 16 * DAY),
     settled_amount: 0, // 아래에서 주문 합계 기준으로 채운다
+    settled_tax_type: "freelancer",
+    settled_withholding: 0,
+    settled_net: 0,
     request_note: null,
     admin_note: "7월 회차 — 정산 완료",
   },
@@ -298,5 +316,8 @@ export const DEMO_DIRECT_ORDERS: DemoDirectOrder[] = DIRECT_SPECS.map(
   const doneSales = DEMO_ORDERS.filter(
     (o) => o.round_id === "demo-round-done" && o.status === "paid",
   ).reduce((s, o) => s + o.amount, 0);
-  DEMO_ROUNDS[2].settled_amount = Math.round(doneSales * 0.2);
+  const s = settlementOf(Math.round(doneSales * 0.2), "freelancer");
+  DEMO_ROUNDS[2].settled_amount = s.gross;
+  DEMO_ROUNDS[2].settled_withholding = s.withheld;
+  DEMO_ROUNDS[2].settled_net = s.net;
 }
