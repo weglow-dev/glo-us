@@ -120,6 +120,7 @@ export async function POST(request: Request) {
       });
     }
     // Toss returns { code, message } on failure.
+    console.error("[confirm] toss rejected:", orderId, payment?.code, payment?.message);
     await admin
       .from("orders")
       .update({ status: "failed", raw_payment: payment })
