@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Script from "next/script";
 import { GA_ID, gaPageView, gaViewItem } from "@/lib/ga";
+import { getOption } from "@/lib/product";
 
 /**
  * GA4 로더 — 루트 레이아웃에 1회 마운트. /admin 은 제외한다
@@ -27,7 +28,8 @@ export default function GoogleAnalytics() {
       gaPageView(pathname ?? "/");
     }
     if (pathname === "/product" || pathname?.startsWith("/product/")) {
-      gaViewItem(99960);
+      // 1개월 실판매가 (기간 프로모션이면 프로모션가)
+      gaViewItem(getOption("1m").price);
     }
   }, [pathname, onAdmin]);
 

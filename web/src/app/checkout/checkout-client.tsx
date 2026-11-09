@@ -309,6 +309,17 @@ export default function CheckoutClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "주문 생성 실패");
 
+      // 서버가 계산한 결제 금액이 화면 금액과 다르면 (프로모션 시작·종료 시각 경계,
+      // 기기 시계 오차, 가격이 바뀌기 전에 열어둔 탭) 그대로 결제하면 승인 단계에서
+      // 금액 불일치로 실패한다. 결제창을 띄우지 않고 새 금액을 확인받는다.
+      if (data.amount !== amount) {
+        setError(
+          `판매가가 변경되었습니다. 새로고침 후 변경된 결제 금액(${formatKRW(data.amount)})을 확인하고 다시 결제해 주세요.`,
+        );
+        setSubmitting(false);
+        return;
+      }
+
       await widgetsRef.current.requestPayment({
         orderId: data.orderId,
         orderName: data.orderName,
