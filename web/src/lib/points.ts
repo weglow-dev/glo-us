@@ -155,4 +155,5 @@ export const POINT_REASON_LABEL: Record<string, string> = {
   order_refund_restore: "주문 환불 복원",
   review_clawback: "환불 주문 리뷰 적립 회수",
   admin_adjust: "관리자 조정",
+  payment_apology: "결제 오류 보상",
 };
