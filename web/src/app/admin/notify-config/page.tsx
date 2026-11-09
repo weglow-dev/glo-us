@@ -145,8 +145,9 @@ export default async function NotifyConfigPage() {
         ? { color: "text-green-700", text: "연결 정상 — 인증·IP 모두 통과 (크론 작동 가능)" }
         : ebut.status === 401
           ? {
-              color: "text-red-700",
-              text: "HTTP 401 인증 실패 — EBUT_API_KEY 값이 잘못됐을 가능성 (따옴표·공백·오타 확인)",
+              // 이벗 게이트웨이는 Vercel IP 를 401 로 막는다 — 발주·송장은 사무실 PC 러너 담당
+              color: "text-amber-700",
+              text: "HTTP 401 — 이 서버(Vercel)에서는 정상입니다. 이벗이 Vercel IP를 차단하기 때문이며, 발주·송장은 사무실 PC 러너(작업 스케줄러 glo-wms-push / glo-wms-pull)가 처리합니다. 실제 연결 상태는 러너 로그(web/scripts/wms-runner.log)로 확인하세요.",
             }
           : ebut.errCode === "996"
             ? {
@@ -243,8 +244,8 @@ export default async function NotifyConfigPage() {
       <div className="mt-10 rounded-2xl border border-ink-line bg-bg-2 p-6">
         <h2 className="text-sm font-semibold text-ink">이벗WMS 연결 진단 (라이브 테스트)</h2>
         <p className="mt-2 text-xs leading-relaxed text-ink-soft">
-          이 페이지를 여는 순간 <b>이 서버에서</b> 이벗 API를 실제로 한 번 호출한 결과입니다. 발주/송장
-          크론이 실패하면 여기서 원인이 보입니다.
+          이 페이지를 여는 순간 <b>이 서버에서</b> 이벗 API를 실제로 한 번 호출한 결과입니다. 이벗은 Vercel
+          IP를 차단하고 있어 여기서는 401이 뜨는 것이 정상이며, 실제 발주·송장은 사무실 PC 러너가 맡습니다.
         </p>
         <p className={`mt-3 text-sm font-semibold ${ebutVerdict.color}`}>{ebutVerdict.text}</p>
         {ebutKey && (
