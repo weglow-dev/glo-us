@@ -37,6 +37,7 @@ type Order = {
   shipped_at: string | null;
   delivered_at: string | null;
   created_at: string;
+  raw_payment: { code?: string; message?: string; status?: string } | null;
 };
 
 function fmtDate(iso: string | null) {
@@ -102,6 +103,16 @@ export default async function OrderDetailPage({
         <Row k="결제수단" v={order.payment_method || "—"} />
         <Row k="승인일시" v={fmtDate(order.approved_at)} />
         <Row k="paymentKey" v={order.payment_key || "—"} mono />
+        {order.status === "failed" && (
+          <>
+            <Row
+              k="실패 코드"
+              v={order.raw_payment?.code || order.raw_payment?.status || "—"}
+              mono
+            />
+            <Row k="실패 사유" v={order.raw_payment?.message || "—"} />
+          </>
+        )}
       </Section>
 
       <Section title="배송 처리">
