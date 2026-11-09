@@ -86,8 +86,55 @@ async function ebutLiveTest(): Promise<{
   }
 }
 
+/**
+ * 토스페이먼츠 연결 라이브 테스트 — 이 서버(=Vercel 프로덕션)에서 시크릿 키로
+ * 존재하지 않는 주문을 조회해 "API 키 접근 정책" 통과 여부를 확인한다.
+ * 정책에 막히면 API_KEY_ACCESS_DENIED (결제 승인·취소가 전부 실패하는 상태),
+ * 통과하면 NOT_FOUND 류가 돌아온다. 조회만 하므로 부작용은 없다.
+ */
+async function tossLiveTest(): Promise<{
+  skipped?: string;
+  status?: number;
+  code?: string;
+  message?: string;
+  error?: string;
+}> {
+  const key = (process.env.TOSS_SECRET_KEY ?? "").trim();
+  if (!key) return { skipped: "TOSS_SECRET_KEY 환경변수 미설정" };
+  try {
+    const res = await fetch("https://api.tosspayments.com/v1/payments/orders/glo_conn_test_000000", {
+      headers: { Authorization: `Basic ${Buffer.from(`${key}:`).toString("base64")}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
+    return { status: res.status, code: j.code, message: j.message };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export default async function NotifyConfigPage() {
-  const ebut = await ebutLiveTest();
+  const [ebut, toss] = await Promise.all([ebutLiveTest(), tossLiveTest()]);
+  const tossKey = (process.env.TOSS_SECRET_KEY ?? "").trim();
+  const tossVerdict = toss.skipped
+    ? { color: "text-red-700", text: `설정 안 됨 — ${toss.skipped}` }
+    : toss.error
+      ? { color: "text-red-700", text: `호출 실패 — ${toss.error}` }
+      : toss.code === "API_KEY_ACCESS_DENIED"
+        ? {
+            color: "text-red-700",
+            text: `차단됨 — 토스 API 키 접근 정책이 이 서버를 막고 있습니다. 지금 모든 결제 승인·취소가 실패합니다. (${toss.message ?? ""})`,
+          }
+        : toss.status === 401
+          ? {
+              color: "text-red-700",
+              text: `HTTP 401 인증 실패 — TOSS_SECRET_KEY 값이 잘못됐을 가능성 (${toss.code ?? "?"})`,
+            }
+          : {
+              color: "text-green-700",
+              text: `연결 정상 — API 키 접근 정책 통과 (조회 응답 ${toss.code ?? toss.status}, 결제 승인 가능)`,
+            };
   const ebutKey = process.env.EBUT_API_KEY ?? "";
   const ebutOk = ebut.status === 200 && ebut.errCode === "000";
   const ebutVerdict = ebut.skipped
@@ -139,6 +186,22 @@ export default async function NotifyConfigPage() {
         <code className="mx-1 rounded bg-bg-3 px-1.5 py-0.5 text-xs">SOLAPI_PFID</code>와 각 템플릿 ID가
         “있음”으로 나와야 알림톡이 나갑니다. 하나라도 “없음”이면 그 알림은 문자로 나갑니다.
       </p>
+
+      <div className="mt-8 rounded-2xl border border-ink-line bg-bg-2 p-6">
+        <h2 className="text-sm font-semibold text-ink">토스페이먼츠 결제 연결 진단 (라이브 테스트)</h2>
+        <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+          이 페이지를 여는 순간 <b>이 서버에서</b> 토스 API를 실제로 한 번 호출한 결과입니다. 결제 실패가
+          이어지면 여기서 원인이 보입니다. 서버 IP는 요청마다 바뀌므로, 토스 개발자센터의 API 키 접근
+          정책을 바꾼 뒤에는 새로고침으로 두세 번 확인하세요.
+        </p>
+        <p className={`mt-3 text-sm font-semibold ${tossVerdict.color}`}>{tossVerdict.text}</p>
+        {tossKey && (
+          <p className="mt-2 font-mono text-xs text-ink-mute">
+            TOSS_SECRET_KEY: {tossKey.slice(0, tossKey.indexOf("_", 5) + 1)}…{tossKey.slice(-4)} ({tossKey.length}자)
+            — 토스 콘솔 정책의 “연결한 키”와 끝 4자리를 대조하세요
+          </p>
+        )}
+      </div>
 
       <div className="mt-8 rounded-2xl border border-ink-line bg-bg-2 p-6">
         <h2 className="text-sm font-semibold text-ink">현재 발송 채널</h2>
